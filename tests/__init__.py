@@ -20,7 +20,15 @@ async def test():
         days: list[list[Entry]] = [
             [] for _ in range(7)
         ]  # 7 buckets for each day of the week
-        tags = "Mon", "Tue", "Web", "Thur", "Fri", "Sat", "Sun"
+        tags = (
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        )
         for entry in report:
             if entry.type in types:
                 if types[entry.type] and not any(
@@ -29,11 +37,10 @@ async def test():
                     continue
                 days[entry.start.day - 1 % 7].append(entry)
         for title, items in zip(tags, days):
-            print(title)
+            print("# ", title)
             entries = [item.dump() for item in items]
-            print(tabulate(entries, tablefmt="heavy_grid", headers="keys"))
+            print(tabulate(entries, tablefmt="github", headers="keys"))
             print("\n\n")
-        #     print(tabulate(report, headers="keys", tablefmt="github"), file=f)
 
 
 asyncio.run(test())

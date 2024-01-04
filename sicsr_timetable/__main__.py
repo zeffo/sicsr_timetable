@@ -1,77 +1,74 @@
-import argparse
-from datetime import datetime
+import asyncio
+import tomllib
+import re
+import sys
+import pathlib
+from pydantic import BaseModel
+from datetime import datetime, timedelta
 from aiohttp import ClientSession
-from yarl import URL
+from tabulate import tabulate
+
+from .core import fetch, Entry
 
 
-parser = argparse.ArgumentParser(
-    prog="SICSR TimeTable Generator",
-    description="Generate your SICSR Timetable from your terminal!",
-    epilog="Please submit bug reports on GitHub: https://github.com/zeffo/sicsr_timetable",
-)
+class Type(BaseModel):
+    name: str  # name of the type
+    rules: list[str]  # regex rules to apply to the type
 
 
-def dt_conv(raw: str) -> datetime:
-    return datetime.strptime(raw, "%d-%m-%Y")
+class Config(BaseModel):
+    types: dict[str, Type]
+    format: str = "heavy_grid"
 
 
-parser.add_argument(
-    "-s",
-    "--start",
-    type=dt_conv,
-    default=datetime.now(),
-    help="Report Start Date (dd-mm-yyyy), defaults to the current date.",
-)
-parser.add_argument(
-    "-e",
-    "--end",
-    type=dt_conv,
-    default=datetime.now(),
-    help="Report End Date (dd-mm-yyyy), defaults to the current date.",
-)
-parser.add_argument(
-    "--match-area",
-    default="",
-    help="Include entries which match this area",
-    dest="areamatch",
-)
-parser.add_argument(
-    "--match-room",
-    default="",
-    help="Include entries which match this room",
-    dest="roommatch",
-)
-parser.add_argument(
-    "--match-type",
-    default="",
-    nargs="*",
-    help="Include entries which match this type. The type(s) should exactly as given in the timetable, eg: BCA (IV) - Div. A)",
-    dest="typematch",
-)
-parser.add_argument(
-    "--match-brief-desc",
-    default="",
-    help="Include entries which match this Brief Description.",
-    dest="namematch",
-)
-parser.add_argument(
-    "--match-desc",
-    "--match-full-desc",
-    default="",
-    help="Include entries which match this Full Description.",
-    dest="descrmatch",
-)
-parser.add_argument(
-    "--match-creator",
-    default="",
-    help="Include entries created by this entity.",
-    dest="creatormatch",
-)
-parser.add_argument(
-    "--confirmation-status", type=int, default=2, dest="matchconfirmed"
-)  # 2 includes both confirmed and tentative entries
-parser.add_argument(
-    "--division",
-    default="",
-    help="Include entries which match this division (or entries which do not mention a division)",
-)
+conf_path = pathlib.Path("config.toml")
+if not conf_path.exists():
+    print("Please create a config.toml file!")
+    sys.exit(0)
+
+with conf_path.open("rb") as f:
+    conf = tomllib.load(f)
+    config = Config(**conf)
+
+
+start = datetime.now()
+end = start + timedelta(days=6)
+
+
+async def get_reports():
+    async with ClientSession() as session:
+        report = list(await fetch(start, end, session=session))
+        types = config.types.values()
+        days: list[list[Entry]] = [
+            [] for _ in range(7)
+        ]  # 7 buckets for each day of the week
+        tags = (
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        )
+        for entry in report:
+            for t in types:
+                if re.search(t.name, entry.type):
+                    if t.rules and not any(
+                        [re.search(rgx, entry.full_desc) for rgx in t.rules]
+                    ):
+                        continue
+                    days[(entry.start.day - 1) % 7].append(entry)
+        for title, items in zip(tags, days):
+            print("# ", title)
+            entries = [item.dump() for item in items]
+            print(tabulate(entries, tablefmt=config.format, headers="keys"))
+            print("\n\n")
+
+
+async def main():
+    await get_reports()
+
+
+if __name__ == "__main__":
+    asyncio.run(get_reports())

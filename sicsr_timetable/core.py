@@ -25,7 +25,7 @@ def dt_conv(raw: str) -> datetime:
 def td_conv(raw: str) -> timedelta:
     """Input format is `1 hours`"""
     val, unit = raw.split()
-    return timedelta(**{unit: int(val)})
+    return timedelta(**{unit: float(val)})
 
 
 def fmtdt(dt: datetime):

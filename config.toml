@@ -1,0 +1,23 @@
+# Sample Config file
+
+[types]
+
+    # Each type has a name (as it appears in the timetable filter dropdown)
+    # and a set of rules for further filtering; eg. to include only a particular division for an elective type.
+    # Both name and rules are regular expressions.
+    
+    [types.division]
+    name = "BCA \\(IV\\) - Div\\. A" # Remember to escape characters like . and () to avoid them being parsed as regex syntax
+    rules = []
+
+    [types.elective1]
+    name = "Elective - Group I"
+    rules = ["Creative Writing"] # Only include entries with Creative Writing in their description
+
+    [types.elective2]
+    name = "Elective - Group II"
+    rules = ["Div\\.? ?A"] # Only include entries with either of (DivA, Div.A, Div A or Div. A)
+
+
+    format = "github" # Output table format. See https://github.com/astanin/python-tabulate#table-format
+
