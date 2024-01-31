@@ -58,7 +58,7 @@ async def get_reports():
                         [re.search(rgx, entry.full_desc) for rgx in t.rules]
                     ):
                         continue
-                    days[(entry.start.day - 1) % 7].append(entry)
+                    days[(entry.start.weekday()) % 7].append(entry)
         for title, items in zip(tags, days):
             print("# ", title)
             entries = [item.dump() for item in items]
